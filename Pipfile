@@ -2,9 +2,7 @@
 url = "https://pypi.org/simple"
 verify_ssl = true
 name = "pypi"
-
-[packages]
-django = "==5.0.*"
+django = ">=5.1"
 psycopg2-binary = "*"
 djangorestframework = "*"
 djangorestframework-simplejwt = "*"
@@ -13,3 +11,10 @@ djangorestframework-simplejwt = "*"
 
 [requires]
 python_version = "3.13"
+
+[packages]
+django = "*"
+djangorestframework = "*"
+djangorestframework-simplejwt = "*"
+psycopg2-binary = "*"
+python-dotenv = "*"
