@@ -6,23 +6,23 @@ from datetime import datetime, timezone, timedelta
 # -----------------------------
 # 1️⃣ Get JWT token
 # -----------------------------
-TOKEN_URL = "http://127.0.0.1:8000/api/token/"
-USERNAME = "menyar"
-PASSWORD = "menyar"
-response = requests.post(TOKEN_URL, json={"username": USERNAME, "password": PASSWORD})
-if response.status_code != 200:
-    raise Exception(f"Failed to get token: {response.text}")
+TOKEN_URL = "http://127.0.0.1:8000/api/token/"  # adjust if your endpoint differs
+USERNAME = "syrin"
+PASSWORD = "cyrine"
 
-tokens = response.json()
-access_token = tokens["access"]
+token_resp = requests.post(TOKEN_URL, json={"username": USERNAME, "password": PASSWORD})
+if token_resp.status_code != 200:
+    raise Exception(f"Failed to get token: {token_resp.status_code} → {token_resp.text}")
+
+access_token = token_resp.json()["access"]
 
 HEADERS = {
     "Content-Type": "application/json",
-    "Authorization": f"Bearer {access_token}"
+    "Authorization": f"Bearer {access_token}",
 }
 
 # -----------------------------
-# 1️⃣a Test user profile & permissions
+# 1️⃣a Test user profile & permissions (optional)
 # -----------------------------
 PROFILE_URL = "http://127.0.0.1:8000/api/user-profiles/"
 profile_response = requests.get(PROFILE_URL, headers=HEADERS)
@@ -30,132 +30,178 @@ if profile_response.status_code == 200:
     profiles = profile_response.json()
     print("=== User Profiles & Roles ===")
     for profile in profiles:
-        # Adjust field names according to your API output
-        print(f"ID: {profile['id']}, User: {profile['user']}, Role: {profile['role']}")
+        # adjust keys if your API returns different field names
+        print(f"ID: {profile.get('id')}, User: {profile.get('user')}, Role: {profile.get('role')}")
     print("=============================\n")
 else:
     print(f"Failed to fetch profiles: {profile_response.status_code} → {profile_response.text}\n")
 
 # -----------------------------
-# 2️⃣ API setup for sensor readings & anomalies
+# 2️⃣ API setup (ONLY sensor readings)
+#     ✅ anomalies/severity/confidence will be handled by ML later
 # -----------------------------
 SENSOR_API_URL = "http://127.0.0.1:8000/api/sensor-readings/"
-ANOMALY_API_URL = "http://127.0.0.1:8000/api/anomalies/"
 PLOT_IDS = [1, 2]
-SEND_EVERY_SECONDS = 20  # adjust frequency
+SEND_EVERY_SECONDS = 20
 
 # -----------------------------
 # 3️⃣ Sensor simulation parameters
 # -----------------------------
-MOISTURE_BASE = 50
-TEMP_BASE = 25
-HUMIDITY_BASE = 60
+MOISTURE_BASE = 50.0
+TEMP_BASE = 25.0
+HUMIDITY_BASE = 60.0
 
 IRRIGATION_INTERVAL = 12 * 60 * 60  # every 12 hours
 last_irrigation = datetime.now(timezone.utc) - timedelta(hours=6)
 
-def diurnal_temperature(hour):
-    """Simulate a sine-wave temperature (min at 4am, max at 2pm)."""
-    return TEMP_BASE + 5 * np.sin((2 * np.pi / 24) * (hour - 4))
+# reproducible randomness (optional but recommended)
+rng = np.random.default_rng(seed=42)
 
-def moisture_change(moisture, now):
-    """Simulate moisture decreasing, increase at irrigation."""
+def diurnal_temperature(hour_float: float) -> float:
+    """Sine-wave temperature (min ~ 4am, max ~ 2pm)."""
+    return TEMP_BASE + 5 * np.sin((2 * np.pi / 24) * (hour_float - 4))
+
+def moisture_change(moisture: float, now: datetime) -> float:
+    """Moisture decreases gradually; increases on irrigation interval."""
     global last_irrigation
     if (now - last_irrigation).total_seconds() >= IRRIGATION_INTERVAL:
-        moisture += np.random.uniform(10, 20)
+        moisture += rng.uniform(10, 20)
         last_irrigation = now
-    moisture -= np.random.uniform(0.1, 0.3)
+    moisture -= rng.uniform(0.1, 0.3)
     return moisture
 
-def humidity_from_temperature(temp):
-    """Humidity inversely correlated with temperature with noise."""
-    return HUMIDITY_BASE - (temp - TEMP_BASE) * 1.5 + np.random.normal(0, 2)
+def humidity_from_temperature(temp: float) -> float:
+    """Humidity inversely correlated with temperature + noise."""
+    return HUMIDITY_BASE - (temp - TEMP_BASE) * 1.5 + rng.normal(0, 2)
 
-def inject_anomaly(value, sensor_type):
-    """Return value and whether it is anomalous"""
-    r = np.random.rand()
-    is_anomaly = False
-    if r < 0.05:
-        is_anomaly = True
-        if sensor_type == "moisture":
-            value -= np.random.uniform(15, 25)
-        elif sensor_type == "temperature":
-            value += np.random.uniform(5, 10)
-        elif sensor_type == "humidity":
-            value -= np.random.uniform(20, 30)
-    elif r < 0.1:
-        is_anomaly = True
-        value += np.random.uniform(-10, 10)
-    elif r < 0.12:
-        is_anomaly = True
-        value += np.random.uniform(-5, 5)
-    return value, is_anomaly
+# -----------------------------
+# ✅ 4️⃣ Scripted anomaly SCENARIOS (reproducible)
+#    We keep severity here as "ground truth" BUT we do not POST anomalies.
+#    ML later will create AnomalyEvent and set severity/confidence.
+# -----------------------------
+SCENARIOS = [
+    {
+        "plot_id": 1,
+        "sensor_type": "moisture",
+        "start_min": 5,
+        "end_min": 12,
+        "kind": "drop",                 # sudden drop
+        "magnitude": (15, 25),
+        "severity": "high",
+        "label": "Irrigation failure (sudden moisture drop)",
+    },
+    {
+        "plot_id": 2,
+        "sensor_type": "temperature",
+        "start_min": 15,
+        "end_min": 18,
+        "kind": "spike",                # sudden spike
+        "magnitude": (6, 10),
+        "severity": "medium",
+        "label": "Heatwave (temperature spike)",
+    },
+    {
+        "plot_id": 1,
+        "sensor_type": "moisture",
+        "start_min": 20,
+        "end_min": 40,
+        "kind": "drift",                # gradual drift each batch
+        "magnitude": 0.4,               # per batch
+        "severity": "low",
+        "label": "Sensor drift (gradual moisture decline)",
+    },
+]
 
-def send_reading(plot_id, sensor_type, value):
+def active_scenarios(elapsed_min: float, plot_id: int, sensor_type: str):
+    """Return scenarios active for this plot/sensor at this time."""
+    return [
+        s for s in SCENARIOS
+        if s["plot_id"] == plot_id
+        and s["sensor_type"] == sensor_type
+        and s["start_min"] <= elapsed_min <= s["end_min"]
+    ]
+
+def apply_scenarios(value: float, elapsed_min: float, plot_id: int, sensor_type: str):
+    """
+    Apply scripted scenarios (no randomness deciding whether anomalies occur).
+    Returns (new_value, ground_truth_events)
+    ground_truth_events include severity, but are NOT sent to backend.
+    """
+    events = []
+    for s in active_scenarios(elapsed_min, plot_id, sensor_type):
+        kind = s["kind"]
+
+        if kind == "drop":
+            value -= rng.uniform(*s["magnitude"])
+        elif kind == "spike":
+            value += rng.uniform(*s["magnitude"])
+        elif kind == "drift":
+            value -= float(s["magnitude"])
+        # else: unknown -> ignore
+
+        events.append(
+            {
+                "severity": s["severity"],   # ✅ kept here for later/evaluation
+                "label": s["label"],
+                "kind": kind,
+            }
+        )
+    return value, events
+
+# -----------------------------
+# 5️⃣ Send readings
+# -----------------------------
+def send_reading(plot_id: int, sensor_type: str, value: float):
     payload = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "plot": plot_id,
         "sensor_type": sensor_type,
-        "value": round(value, 2),
-        "source": "simulator",
+        "value": round(float(value), 2),
+        "source": "simulator_scenarios",
     }
-    response = requests.post(SENSOR_API_URL, json=payload, headers=HEADERS)
-    print(f"[PLOT {plot_id}] {sensor_type}={value:.2f} → status {response.status_code}")
-    if response.status_code not in (200, 201):
-        print("Response body:", response.text)
-    return response.json().get("id")  # return sensor reading ID if available
 
-def send_anomaly(plot_id, sensor_type, value, related_reading=None):
-    payload = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "plot": plot_id,
-        "anomaly_type": f"{sensor_type} anomaly",
-        "severity": severity,
-        "related_reading": related_reading
-    }
-    response = requests.post(ANOMALY_API_URL, json=payload, headers=HEADERS)
-    print(f"[PLOT {plot_id}] → AnomalyEvent posted: status {response.status_code}")
-    if response.status_code not in (200, 201):
-        print("Response body:", response.text)
+    resp = requests.post(SENSOR_API_URL, json=payload, headers=HEADERS)
+    print(f"[PLOT {plot_id}] {sensor_type}={payload['value']} → status {resp.status_code}")
+    if resp.status_code not in (200, 201):
+        print("Response body:", resp.text)
 
 # -----------------------------
-# 4️⃣ Main loop
+# 6️⃣ Main loop
 # -----------------------------
 def main():
-    print("Starting realistic sensor simulator with anomaly posting...")
+    print("Starting realistic sensor simulator (scenario-based anomalies)...")
     print(f"Plots: {PLOT_IDS}")
-    print(f"Sending every {SEND_EVERY_SECONDS / 60:.1f} minutes.\n")
+    print(f"Sending every {SEND_EVERY_SECONDS}s (~{SEND_EVERY_SECONDS/60:.1f} min)\n")
 
+    start_time = datetime.now(timezone.utc)
     moisture_levels = {pid: MOISTURE_BASE for pid in PLOT_IDS}
 
     while True:
         now = datetime.now(timezone.utc)
-        hour = now.hour + now.minute / 60
+        elapsed_min = (now - start_time).total_seconds() / 60.0
+        hour = now.hour + now.minute / 60.0
 
         for plot_id in PLOT_IDS:
-            temperature = diurnal_temperature(hour) + np.random.normal(0, 0.5)
+            # baseline values
+            temperature= diurnal_temperature(hour) + rng.normal(0, 0.5)
             moisture_levels[plot_id] = moisture_change(moisture_levels[plot_id], now)
             humidity = humidity_from_temperature(temperature)
 
-            # Inject anomalies
-            moisture, mo_anomaly = inject_anomaly(moisture_levels[plot_id], "moisture")
-            temperature, temp_anomaly = inject_anomaly(temperature, "temperature")
-            humidity, hum_anomaly = inject_anomaly(humidity, "humidity")
+            # apply scripted anomalies (scenarios)
+            moisture, m_events = apply_scenarios(moisture_levels[plot_id], elapsed_min, plot_id, "moisture")
+            temperature, t_events = apply_scenarios(temperature, elapsed_min, plot_id, "temperature")
+            humidity, h_events = apply_scenarios(humidity, elapsed_min, plot_id, "humidity")
 
-            # Send sensor readings
-            moisture_id = send_reading(plot_id, "moisture", moisture)
-            temp_id = send_reading(plot_id, "temperature", temperature)
-            hum_id = send_reading(plot_id, "humidity", humidity)
+            # send ONLY readings (ML will generate AnomalyEvent later)
+            send_reading(plot_id, "moisture", moisture)
+            send_reading(plot_id, "temperature", temperature)
+            send_reading(plot_id, "humidity", humidity)
 
-            # Post anomalies if detected
-            if mo_anomaly:
-                send_anomaly(plot_id, "moisture", moisture, related_reading=moisture_id)
-            if temp_anomaly:
-                send_anomaly(plot_id, "temperature", temperature, related_reading=temp_id)
-            if hum_anomaly:
-                send_anomaly(plot_id, "humidity", humidity, related_reading=hum_id)
+            # log ground-truth (severity kept but not posted)
+            for e in (m_events + t_events + h_events):
+                print(f"  [GROUND_TRUTH] plot={plot_id} {e['kind']} severity={e['severity']} → {e['label']}")
 
         time.sleep(SEND_EVERY_SECONDS)
 
-if __name__ == "__main__":
+if __name__  == "__main__":
     main()
