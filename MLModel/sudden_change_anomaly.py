@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 # ------------------------------
 # Example class containing the function
 # ------------------------------
-class SensorAnalyzer:
+class SuddenChangeDetector:
 
 
     def sudden_change(self, df):

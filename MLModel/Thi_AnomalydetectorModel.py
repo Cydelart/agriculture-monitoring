@@ -75,16 +75,24 @@ class THIMonthlyDetector:
                 if in_deviation:
                     duration_h = (start_time - time).total_seconds() / 3600
                     if duration_h >= min_duration_hours:
+                        print(start_time)
+                        print(time)
+                        print(thi)
+                        print(latest["thi"])
+                        print(expected_THI)
+
                         anomalies.append(
                             (plot,
                              f"THI sustained deviation >15% "
                              f"(THI={start_thi:.2f}, deviation={start_dev:.1f}%, "
                              f"duration={duration_h:.2f}h)")
                         )
+                        
                     in_deviation = False
                     start_time = -1
                     start_thi = -1
                     start_dev = -1
+                    break
             # =================================
 
         
