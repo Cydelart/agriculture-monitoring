@@ -5,7 +5,7 @@ from sklearn.ensemble import IsolationForest
 
 # ---- paths ----
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = os.path.join(BASE_DIR, "data", "MOCK_data.csv")
+DATA_PATH = os.path.join(BASE_DIR, "data", "baseline_plot_specific.csv")
 MODELS_DIR = os.path.join(BASE_DIR, "models")
 
 os.makedirs(MODELS_DIR, exist_ok=True)
