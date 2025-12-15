@@ -2,7 +2,7 @@ import os
 import sys
 
 # =========================================================
-# 1) ADD PROJECT ROOT (folder that contains manage.py)
+# ADD PROJECT ROOT (folder that contains manage.py)
 # =========================================================
 PROJECT_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..")
@@ -16,7 +16,7 @@ print("Has agriculture_backend folder?",
       os.path.isdir(os.path.join(PROJECT_ROOT, "agriculture_backend")))
 
 # =========================================================
-# 2) DJANGO SETTINGS
+# DJANGO SETTINGS
 # =========================================================
 os.environ.setdefault(
     "DJANGO_SETTINGS_MODULE",
@@ -27,7 +27,7 @@ import django
 django.setup()
 
 # =========================================================
-# 3) IMPORTS
+# IMPORTS
 # =========================================================
 import pandas as pd
 import numpy as np
@@ -36,16 +36,16 @@ import joblib
 from monitoring.models import SensorReading
 
 # =========================================================
-# 4) PATHS & CONSTANTS
+# PATHS & CONSTANTS
 # =========================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(BASE_DIR, "models")
 
 FEATURES = ["temperature", "humidity", "moisture"]
-SOURCE_VALUE = "simulator"   # ← EXACT value from your DB
+SOURCE_VALUE = "simulator_scenarios"
 
 # =========================================================
-# 5) MAIN LOGIC
+# MAIN LOGIC
 # =========================================================
 def main():
     print("\n--- Pulling data from DB ---")
@@ -59,7 +59,7 @@ def main():
     print("Readings fetched:", qs.count())
 
     if not qs.exists():
-        print("❌ No data found for source =", SOURCE_VALUE)
+        print("Error: No data found for source =", SOURCE_VALUE)
         print("Available sources:",
               list(SensorReading.objects.values_list("source", flat=True).distinct()))
         return
@@ -103,7 +103,7 @@ def main():
     print(f"Wide after dropna: {len(wide)} rows (dropped {before - len(wide)})")
 
     if wide.empty:
-        print("❌ No complete sensor vectors found.")
+        print("Error: No complete sensor vectors found.")
         print("Reason: sensors not aligned in same second.")
         return
 
@@ -112,6 +112,9 @@ def main():
     # =====================================================
     print("\n--- Scoring with Isolation Forest models ---")
 
+    # Optional: inject synthetic anomalies for testing
+    INJECT_TEST_ANOMALIES = True  # Set to False to test real data only
+    
     for plot_id in sorted(wide["plot_id"].unique()):
         model_path = os.path.join(
             MODELS_DIR,
@@ -119,7 +122,7 @@ def main():
         )
 
         if not os.path.exists(model_path):
-            print(f"⚠️ No model for plot {plot_id}")
+            print(f"Warning: No model found for plot {plot_id}")
             continue
 
         model = joblib.load(model_path)
@@ -128,20 +131,57 @@ def main():
             wide[wide["plot_id"] == plot_id][FEATURES]
             .astype(float)
         )
-
+        
+        # Get anomaly scores (lower = more anomalous)
+        scores = model.decision_function(X)
         preds = model.predict(X)   # 1 = normal, -1 = anomaly
+        
         rate = (preds == -1).mean() * 100
+        
+        print(f"\nPlot {plot_id} Results:")
+        print(f"  Vectors tested: {len(X)}")
+        print(f"  Anomaly rate: {rate:.2f}%")
+        print(f"  Score range: [{scores.min():.3f}, {scores.max():.3f}]")
+        print(f"  Score mean: {scores.mean():.3f}")
+        
+        # Show top 5 most anomalous readings (even if not flagged)
+        if len(scores) > 0:
+            top_indices = np.argsort(scores)[:5]
+            print(f"\n  Top 5 most anomalous readings:")
+            for i, idx in enumerate(top_indices, 1):
+                row = X.iloc[idx]
+                print(f"    {i}. Score={scores[idx]:.3f} | "
+                      f"T={row['temperature']:.1f}C, "
+                      f"H={row['humidity']:.1f}%, "
+                      f"M={row['moisture']:.1f}%")
+        
+        # TEST: Inject synthetic anomalies to verify model works
+        if INJECT_TEST_ANOMALIES:
+            print(f"\n  Testing with synthetic anomalies...")
+            X_test = X.copy()
+            # Create 3 synthetic anomalies
+            test_anomalies = pd.DataFrame([
+                {"temperature": 50.0, "humidity": 10.0, "moisture": 5.0},   # Extreme heat + dry
+                {"temperature": 5.0, "humidity": 95.0, "moisture": 90.0},   # Extreme cold + wet
+                {"temperature": 35.0, "humidity": 5.0, "moisture": 0.0},    # Desert-like
+            ])
+            X_with_anomalies = pd.concat([X_test, test_anomalies], ignore_index=True)
+            
+            test_preds = model.predict(X_with_anomalies)
+            test_scores = model.decision_function(X_with_anomalies)
+            
+            synthetic_preds = test_preds[-3:]
+            synthetic_scores = test_scores[-3:]
+            
+            detected = (synthetic_preds == -1).sum()
+            print(f"    Injected 3 synthetic anomalies")
+            print(f"    Detected: {detected}/3")
+            print(f"    Scores: {synthetic_scores}")
 
-        print(
-            f"Plot {plot_id}: "
-            f"anomaly rate = {rate:.2f}% "
-            f"(vectors={len(X)})"
-        )
-
-    print("\n✅ Done scoring.")
+    print("\nDone scoring.")
 
 # =========================================================
-# 6) ENTRY POINT
+# ENTRY POINT
 # =========================================================
 if __name__ == "__main__":
     main()

@@ -4,7 +4,7 @@ import requests
 from datetime import datetime, timezone, timedelta
 
 # -----------------------------
-# 1️⃣ Get JWT token
+# Get JWT token
 # -----------------------------
 TOKEN_URL = "http://127.0.0.1:8000/api/token/"  # adjust if your endpoint differs
 USERNAME = "syrin"
@@ -22,7 +22,7 @@ HEADERS = {
 }
 
 # -----------------------------
-# 1️⃣a Test user profile & permissions (optional)
+# Test user profile & permissions (optional)
 # -----------------------------
 PROFILE_URL = "http://127.0.0.1:8000/api/user-profiles/"
 profile_response = requests.get(PROFILE_URL, headers=HEADERS)
@@ -37,15 +37,15 @@ else:
     print(f"Failed to fetch profiles: {profile_response.status_code} → {profile_response.text}\n")
 
 # -----------------------------
-# 2️⃣ API setup (ONLY sensor readings)
-#     ✅ anomalies/severity/confidence will be handled by ML later
+# API setup - send sensor readings only
+# Anomaly detection handled by ML later
 # -----------------------------
 SENSOR_API_URL = "http://127.0.0.1:8000/api/sensor-readings/"
-PLOT_IDS = [1, 2]
+PLOT_IDS = [1, 2, 3]
 SEND_EVERY_SECONDS = 20
 
 # -----------------------------
-# 3️⃣ Sensor simulation parameters
+# Sensor simulation parameters
 # -----------------------------
 MOISTURE_BASE = 50.0
 TEMP_BASE = 25.0
@@ -75,50 +75,60 @@ def humidity_from_temperature(temp: float) -> float:
     return HUMIDITY_BASE - (temp - TEMP_BASE) * 1.5 + rng.normal(0, 2)
 
 # -----------------------------
-# ✅ 4️⃣ Scripted anomaly SCENARIOS (reproducible)
-#    We keep severity here as "ground truth" BUT we do not POST anomalies.
-#    ML later will create AnomalyEvent and set severity/confidence.
+# Anomaly scenarios - repeat every 60 minutes
+# Severity kept as ground truth, not posted to API
+# ML will create AnomalyEvent and set confidence
 # -----------------------------
+CYCLE_DURATION = 60
+
 SCENARIOS = [
+    # Plot 1: Short irrigation failure
     {
         "plot_id": 1,
         "sensor_type": "moisture",
-        "start_min": 5,
+        "start_min": 8,
         "end_min": 12,
-        "kind": "drop",                 # sudden drop
-        "magnitude": (15, 25),
-        "severity": "high",
+        "kind": "drop",
+        "magnitude": (15, 20),
+        "severity": "medium",
         "label": "Irrigation failure (sudden moisture drop)",
     },
+    # Plot 2: Brief temperature spike
     {
         "plot_id": 2,
         "sensor_type": "temperature",
-        "start_min": 15,
-        "end_min": 18,
-        "kind": "spike",                # sudden spike
-        "magnitude": (6, 10),
+        "start_min": 22,
+        "end_min": 26,
+        "kind": "spike",
+        "magnitude": (6, 9),
         "severity": "medium",
         "label": "Heatwave (temperature spike)",
     },
+    # Plot 3: Soil drying event
     {
-        "plot_id": 1,
+        "plot_id": 3,
         "sensor_type": "moisture",
-        "start_min": 20,
+        "start_min": 35,
         "end_min": 40,
-        "kind": "drift",                # gradual drift each batch
-        "magnitude": 0.4,               # per batch
+        "kind": "drop",
+        "magnitude": (10, 15),
         "severity": "low",
-        "label": "Sensor drift (gradual moisture decline)",
+        "label": "Soil drying event (moisture drop)",
     },
 ]
 
 def active_scenarios(elapsed_min: float, plot_id: int, sensor_type: str):
-    """Return scenarios active for this plot/sensor at this time."""
+    """Return scenarios active for this plot/sensor at this time.
+    Uses modulo to make scenarios repeat every CYCLE_DURATION minutes.
+    """
+    # Use modulo to create repeating cycles
+    cycle_position = elapsed_min % CYCLE_DURATION
+    
     return [
         s for s in SCENARIOS
         if s["plot_id"] == plot_id
         and s["sensor_type"] == sensor_type
-        and s["start_min"] <= elapsed_min <= s["end_min"]
+        and s["start_min"] <= cycle_position <= s["end_min"]
     ]
 
 def apply_scenarios(value: float, elapsed_min: float, plot_id: int, sensor_type: str):
@@ -149,7 +159,7 @@ def apply_scenarios(value: float, elapsed_min: float, plot_id: int, sensor_type:
     return value, events
 
 # -----------------------------
-# 5️⃣ Send readings
+# Send readings to API
 # -----------------------------
 def send_reading(plot_id: int, sensor_type: str, value: float):
     payload = {
@@ -166,12 +176,18 @@ def send_reading(plot_id: int, sensor_type: str, value: float):
         print("Response body:", resp.text)
 
 # -----------------------------
-# 6️⃣ Main loop
+# Main loop
 # -----------------------------
 def main():
-    print("Starting realistic sensor simulator (scenario-based anomalies)...")
-    print(f"Plots: {PLOT_IDS}")
-    print(f"Sending every {SEND_EVERY_SECONDS}s (~{SEND_EVERY_SECONDS/60:.1f} min)\n")
+    print("Starting sensor simulator with continuous anomaly generation")
+    print(f"Monitoring plots: {PLOT_IDS}")
+    print(f"Update interval: {SEND_EVERY_SECONDS}s (~{SEND_EVERY_SECONDS/60:.1f} min)")
+    print(f"Anomaly cycle duration: {CYCLE_DURATION} minutes (repeating)")
+    print(f"\nAnomaly schedule (repeats every {CYCLE_DURATION} min):")
+    for s in SCENARIOS:
+        print(f"  Plot {s['plot_id']}: {s['sensor_type']} {s['kind']} "
+              f"({s['start_min']}-{s['end_min']} min) - {s['severity']} severity")
+    print("\n" + "="*60 + "\n")
 
     start_time = datetime.now(timezone.utc)
     moisture_levels = {pid: MOISTURE_BASE for pid in PLOT_IDS}
@@ -179,7 +195,10 @@ def main():
     while True:
         now = datetime.now(timezone.utc)
         elapsed_min = (now - start_time).total_seconds() / 60.0
+        cycle_min = elapsed_min % CYCLE_DURATION
         hour = now.hour + now.minute / 60.0
+
+        print(f"Elapsed: {elapsed_min:.1f} min | Cycle: {cycle_min:.1f}/{CYCLE_DURATION} min")
 
         for plot_id in PLOT_IDS:
             # baseline values
@@ -187,20 +206,21 @@ def main():
             moisture_levels[plot_id] = moisture_change(moisture_levels[plot_id], now)
             humidity = humidity_from_temperature(temperature)
 
-            # apply scripted anomalies (scenarios)
+            # apply anomaly scenarios
             moisture, m_events = apply_scenarios(moisture_levels[plot_id], elapsed_min, plot_id, "moisture")
             temperature, t_events = apply_scenarios(temperature, elapsed_min, plot_id, "temperature")
             humidity, h_events = apply_scenarios(humidity, elapsed_min, plot_id, "humidity")
 
-            # send ONLY readings (ML will generate AnomalyEvent later)
+            # send readings to API
             send_reading(plot_id, "moisture", moisture)
             send_reading(plot_id, "temperature", temperature)
             send_reading(plot_id, "humidity", humidity)
 
-            # log ground-truth (severity kept but not posted)
+            # log anomalies for verification
             for e in (m_events + t_events + h_events):
-                print(f"  [GROUND_TRUTH] plot={plot_id} {e['kind']} severity={e['severity']} → {e['label']}")
+                print(f"  [ANOMALY] Plot {plot_id}: {e['kind']} ({e['severity']}) - {e['label']}")
 
+        print()
         time.sleep(SEND_EVERY_SECONDS)
 
 if __name__  == "__main__":
