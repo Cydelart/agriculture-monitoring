@@ -78,7 +78,7 @@ def main():
     # FIX: Timestamp bucketing (critical)
     # =====================================================
     df["timestamp"] = pd.to_datetime(df["timestamp"])
-    df["bucket"] = df["timestamp"].dt.floor("S")  # per-second buckets
+    df["bucket"] = df["timestamp"].dt.floor("s")  # per-second buckets
 
     # =====================================================
     # Pivot → one row = one vector
