@@ -86,8 +86,8 @@ SCENARIOS = [
     {
         "plot_id": 1,
         "sensor_type": "moisture",
-        "start_min": 8,
-        "end_min": 12,
+        "start_min": 0.5,
+        "end_min": 1.5,
         "kind": "drop",
         "magnitude": (15, 20),
         "severity": "medium",
@@ -97,8 +97,8 @@ SCENARIOS = [
     {
         "plot_id": 2,
         "sensor_type": "temperature",
-        "start_min": 22,
-        "end_min": 26,
+        "start_min": 0.5,
+        "end_min": 1.5,
         "kind": "spike",
         "magnitude": (6, 9),
         "severity": "medium",
@@ -108,8 +108,8 @@ SCENARIOS = [
     {
         "plot_id": 3,
         "sensor_type": "moisture",
-        "start_min": 35,
-        "end_min": 40,
+        "start_min": 0.5,
+        "end_min": 1.5,
         "kind": "drop",
         "magnitude": (10, 15),
         "severity": "low",

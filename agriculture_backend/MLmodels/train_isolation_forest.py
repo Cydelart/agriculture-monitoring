@@ -54,14 +54,14 @@ def main():
         df_plot = df[df[PLOT_COL] == plot_id].copy()
 
         if len(df_plot) < 50:
-            print(f"⚠️ Plot {plot_id}: only {len(df_plot)} rows → consider generating more.")
+            print(f" Plot {plot_id}: only {len(df_plot)} rows → consider generating more.")
             continue
 
         model = train_one_model(df_plot, plot_id)
         out_path = os.path.join(MODELS_DIR, f"isoforest_plot_{plot_id}.joblib")
         joblib.dump(model, out_path)
 
-        print(f"✅ Trained & saved model for plot {plot_id}: {out_path}  (rows={len(df_plot)})")
+        print(f" Trained & saved model for plot {plot_id}: {out_path}  (rows={len(df_plot)})")
 
     print("\nDone.")
 

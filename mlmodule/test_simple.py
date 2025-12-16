@@ -45,11 +45,11 @@ print(f"Result: {'ANOMALY' if result['is_anomaly'] else 'NORMAL'}")
 print("\nTest 3: Running batch detection on last 60 minutes...")
 results = run_batch_detection(
     minutes=60,
-    create_events=False  # Don't save to database for testing
+    create_events=True 
 )
 
 print("\n" + "="*60)
 print("TESTS COMPLETE!")
 print("="*60)
-print("\nIf you want to run this for real, use:")
-print("  python manage.py detect_anomalies")
+
+print(results)

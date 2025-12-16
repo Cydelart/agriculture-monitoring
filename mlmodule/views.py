@@ -1,6 +1,4 @@
-"""
-API views for ML Module (Iris + AgriBot)
-"""
+
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -15,23 +13,11 @@ from .agribot import (
 from monitoring.models import AnomalyEvent
 
 
-# ============================================================================
-# IRIS ENDPOINTS (Anomaly Detection)
-# ============================================================================
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def batch_detect(request):
-    """
-    Run batch anomaly detection.
-    
-    POST /api/iris/detect/
-    Body: {
-        "plot_id": 1,      // optional
-        "minutes": 10,     // optional, default 5
-        "create_events": true  // optional, default true
-    }
-    """
+   
     plot_id = request.data.get('plot_id')
     minutes = request.data.get('minutes', 5)
     create_events = request.data.get('create_events', True)
@@ -53,18 +39,9 @@ def batch_detect(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def check_reading(request):
-    """
-    Check a single sensor reading.
-    
-    POST /api/iris/check/
-    Body: {
-        "plot_id": 1,
-        "temperature": 35.5,
-        "humidity": 20.0,
-        "moisture": 15.0,
-        "create_event": true  // optional, default true
-    }
-    """
+   
+
+
     # Check required fields
     required = ['plot_id', 'temperature', 'humidity', 'moisture']
     for field in required:
@@ -90,25 +67,11 @@ def check_reading(request):
         )
 
 
-# ============================================================================
-# AGRIBOT ENDPOINTS (AI Recommendations)
-# ============================================================================
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def get_advice(request):
-    """
-    Get AI recommendation for sensor readings.
     
-    POST /api/agribot/advice/
-    Body: {
-        "plot_id": 1,
-        "temperature": 38.0,
-        "humidity": 15.0,
-        "moisture": 10.0,
-        "severity": "high"  // optional
-    }
-    """
     required = ['plot_id', 'temperature', 'humidity', 'moisture']
     for field in required:
         if field not in request.data:
@@ -136,15 +99,7 @@ def get_advice(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_recommendation_for_anomaly(request):
-    """
-    Generate recommendation for an existing anomaly event.
-    
-    POST /api/agribot/recommend/
-    Body: {
-        "anomaly_id": 123,
-        "save_to_db": true  // optional, default true
-    }
-    """
+ 
     anomaly_id = request.data.get('anomaly_id')
     
     if not anomaly_id:
