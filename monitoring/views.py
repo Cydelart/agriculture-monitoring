@@ -1,20 +1,24 @@
-from rest_framework import viewsets, permissions
-from .models import SensorReading, AnomalyEvent, AgentRecommendation,UserProfile
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+from .models import SensorReading, AnomalyEvent, AgentRecommendation, UserProfile
 from .serializers import (
     SensorReadingSerializer,
     AnomalyEventSerializer,
-    AgentRecommendationSerializer,UserProfileSerializer
+    AgentRecommendationSerializer,
+    UserProfileSerializer,
 )
 from .permissions import *
 
-class UserProfileViewSet(viewsets.ModelViewSet):
-    queryset = UserProfile.objects.select_related('user').all()
-    serializer_class = UserProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]  # only logged in users can see profiles
+from mlmodule.iris_service import run_batch_detection
 
-# -------------------------------------------------------
-# Sensor Readings (GET + POST)   ← teacher asked for this
-# -------------------------------------------------------
+
+class UserProfileViewSet(viewsets.ModelViewSet):
+    queryset = UserProfile.objects.select_related("user").all()
+    serializer_class = UserProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
 class SensorReadingViewSet(viewsets.ModelViewSet):
     queryset = SensorReading.objects.all().order_by("-timestamp")
     serializer_class = SensorReadingSerializer
@@ -28,18 +32,33 @@ class SensorReadingViewSet(viewsets.ModelViewSet):
         return qs
 
 
-# -------------------------------------------------------
-# Anomalies (GET only)   ← teacher asked for GET list
-# -------------------------------------------------------
-class AnomalyEventViewSet(viewsets.ModelViewSet):
+
+class AnomalyEventViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    - GET /anomalies/            -> list anomaly events
+    - POST /anomalies/run-ml/   -> trigger ML batch inference
+    """
     queryset = AnomalyEvent.objects.all().order_by("-timestamp")
     serializer_class = AnomalyEventSerializer
     permission_classes = [IsAdminFarmerWorker]
 
+    @action(detail=False, methods=["post"], url_path="run-ml")
+    def run_ml(self, request):
+        minutes = int(request.data.get("minutes", 60))
+        plot_id = request.data.get("plot_id", None)
+        create_events = bool(request.data.get("create_events", True))
 
-# -------------------------------------------------------
-# Recommendations (GET only)   ← teacher asked for GET list
-# -------------------------------------------------------
+        results = run_batch_detection(
+            plot_id=plot_id,        # None = ALL plots (your 3 models)
+            minutes=minutes,
+            create_events=create_events,
+            no_duplicates=True,
+        )
+
+        return Response(results, status=status.HTTP_200_OK)
+
+
+
 class AgentRecommendationViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AgentRecommendation.objects.all().order_by("-timestamp")
     serializer_class = AgentRecommendationSerializer

@@ -7,9 +7,8 @@ urlpatterns = [
 
     # API Monitoring
     path("api/", include("monitoring.urls")),
+    path("api-auth/", include("rest_framework.urls")),
     
-    # Iris ML Module
-    path("api/iris/", include("mlmodule.urls")),
 
     # JWT Auth
     #un pour token login /refresh

@@ -1,55 +1,43 @@
-"""
-Simple test script for Iris
-
-Run this to see if everything works!
-"""
 import os
 import sys
 import django
 
-# Setup Django
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, PROJECT_ROOT)
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "agriculture_backend.settings")
 django.setup()
 
-from mlmodule.iris_service import run_batch_detection, check_single_reading
+from mlmodule.iris_service import run_batch_detection
 
-print("="*60)
-print("IRIS THE ANALYST - SIMPLE TEST")
-print("="*60)
+print("=" * 60)
+print("IRIS - BATCH TEST (ALL PLOTS) + CREATE EVENTS")
+print("=" * 60)
 
-# Test 1: Check a single reading
-print("\nTest 1: Checking a normal reading...")
-result = check_single_reading(
-    plot_id=1,
-    temperature=22.0,
-    humidity=65.0,
-    moisture=45.0,
-    create_event=False  # Don't save to database
-)
-print(f"Result: {'ANOMALY' if result['is_anomaly'] else 'NORMAL'}")
-
-# Test 2: Check an extreme reading (should be anomaly)
-print("\nTest 2: Checking an extreme reading...")
-result = check_single_reading(
-    plot_id=1,
-    temperature=50.0,  # Very hot!
-    humidity=10.0,     # Very dry!
-    moisture=5.0,      # Very dry soil!
-    create_event=False
-)
-print(f"Result: {'ANOMALY' if result['is_anomaly'] else 'NORMAL'}")
-
-# Test 3: Run batch detection (if you have recent data)
-print("\nTest 3: Running batch detection on last 60 minutes...")
 results = run_batch_detection(
-    minutes=60,
-    create_events=True 
+    plot_id=None,       
+    minutes=60,          
+    create_events=True,  
+    no_duplicates=True,  
 )
 
-print("\n" + "="*60)
-print("TESTS COMPLETE!")
-print("="*60)
-
+print("\nRESULTS:")
 print(results)
+
+if results.get("success"):
+    print("\nSUMMARY:")
+    print(f"Total analyzed:  {results['total_analyzed']}")
+    print(f"Anomalies found: {results['anomalies_found']}")
+    print(f"Anomaly rate:    {results['anomaly_rate']:.4f}")
+    print(f"Events created:  {results['events_created']}")
+    
+
+    print("\nBY PLOT:")
+    for pid, info in results["by_plot"].items():
+        print(
+            f"  Plot {pid}: analyzed={info['analyzed']}, anomalies={info['anomalies']}, "
+            f"rate={info['anomaly_rate']:.4f}, events_created={info['events_created']}, "
+            
+        )
+else:
+    print("\nERROR:", results.get("message"))
+

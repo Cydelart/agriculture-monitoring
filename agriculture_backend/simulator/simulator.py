@@ -44,9 +44,7 @@ SENSOR_API_URL = "http://127.0.0.1:8000/api/sensor-readings/"
 PLOT_IDS = [1, 2, 3]
 SEND_EVERY_SECONDS = 20
 
-# -----------------------------
-# Sensor simulation parameters
-# -----------------------------
+
 MOISTURE_BASE = 50.0
 TEMP_BASE = 25.0
 HUMIDITY_BASE = 60.0
@@ -54,15 +52,12 @@ HUMIDITY_BASE = 60.0
 IRRIGATION_INTERVAL = 12 * 60 * 60  # every 12 hours
 last_irrigation = datetime.now(timezone.utc) - timedelta(hours=6)
 
-# reproducible randomness (optional but recommended)
 rng = np.random.default_rng(seed=42)
 
 def diurnal_temperature(hour_float: float) -> float:
-    """Sine-wave temperature (min ~ 4am, max ~ 2pm)."""
     return TEMP_BASE + 5 * np.sin((2 * np.pi / 24) * (hour_float - 4))
 
 def moisture_change(moisture: float, now: datetime) -> float:
-    """Moisture decreases gradually; increases on irrigation interval."""
     global last_irrigation
     if (now - last_irrigation).total_seconds() >= IRRIGATION_INTERVAL:
         moisture += rng.uniform(10, 20)
@@ -71,14 +66,9 @@ def moisture_change(moisture: float, now: datetime) -> float:
     return moisture
 
 def humidity_from_temperature(temp: float) -> float:
-    """Humidity inversely correlated with temperature + noise."""
     return HUMIDITY_BASE - (temp - TEMP_BASE) * 1.5 + rng.normal(0, 2)
 
-# -----------------------------
-# Anomaly scenarios - repeat every 60 minutes
-# Severity kept as ground truth, not posted to API
-# ML will create AnomalyEvent and set confidence
-# -----------------------------
+
 CYCLE_DURATION = 60
 
 SCENARIOS = [
@@ -118,9 +108,7 @@ SCENARIOS = [
 ]
 
 def active_scenarios(elapsed_min: float, plot_id: int, sensor_type: str):
-    """Return scenarios active for this plot/sensor at this time.
-    Uses modulo to make scenarios repeat every CYCLE_DURATION minutes.
-    """
+   
     # Use modulo to create repeating cycles
     cycle_position = elapsed_min % CYCLE_DURATION
     
@@ -132,11 +120,7 @@ def active_scenarios(elapsed_min: float, plot_id: int, sensor_type: str):
     ]
 
 def apply_scenarios(value: float, elapsed_min: float, plot_id: int, sensor_type: str):
-    """
-    Apply scripted scenarios (no randomness deciding whether anomalies occur).
-    Returns (new_value, ground_truth_events)
-    ground_truth_events include severity, but are NOT sent to backend.
-    """
+  
     events = []
     for s in active_scenarios(elapsed_min, plot_id, sensor_type):
         kind = s["kind"]
@@ -151,7 +135,7 @@ def apply_scenarios(value: float, elapsed_min: float, plot_id: int, sensor_type:
 
         events.append(
             {
-                "severity": s["severity"],   # ✅ kept here for later/evaluation
+                "severity": s["severity"],  
                 "label": s["label"],
                 "kind": kind,
             }
@@ -161,14 +145,20 @@ def apply_scenarios(value: float, elapsed_min: float, plot_id: int, sensor_type:
 # -----------------------------
 # Send readings to API
 # -----------------------------
-def send_reading(plot_id: int, sensor_type: str, value: float):
+def send_reading(timestamp: datetime, plot_id: int, sensor_type: str, value: float):
     payload = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": timestamp.isoformat(),
         "plot": plot_id,
         "sensor_type": sensor_type,
         "value": round(float(value), 2),
         "source": "simulator_scenarios",
     }
+
+    resp = requests.post(SENSOR_API_URL, json=payload, headers=HEADERS)
+    print(f"[PLOT {plot_id}] {sensor_type}={payload['value']} → status {resp.status_code}")
+    if resp.status_code not in (200, 201):
+        print("Response body:", resp.text)
+
 
     resp = requests.post(SENSOR_API_URL, json=payload, headers=HEADERS)
     print(f"[PLOT {plot_id}] {sensor_type}={payload['value']} → status {resp.status_code}")
@@ -206,15 +196,16 @@ def main():
             moisture_levels[plot_id] = moisture_change(moisture_levels[plot_id], now)
             humidity = humidity_from_temperature(temperature)
 
-            # apply anomaly scenarios
             moisture, m_events = apply_scenarios(moisture_levels[plot_id], elapsed_min, plot_id, "moisture")
             temperature, t_events = apply_scenarios(temperature, elapsed_min, plot_id, "temperature")
             humidity, h_events = apply_scenarios(humidity, elapsed_min, plot_id, "humidity")
 
             # send readings to API
-            send_reading(plot_id, "moisture", moisture)
-            send_reading(plot_id, "temperature", temperature)
-            send_reading(plot_id, "humidity", humidity)
+            ts = datetime.now(timezone.utc)
+
+            send_reading(ts,plot_id, "moisture", moisture)
+            send_reading(ts, plot_id, "temperature", temperature)
+            send_reading(ts, plot_id, "humidity", humidity)
 
             # log anomalies for verification
             for e in (m_events + t_events + h_events):
