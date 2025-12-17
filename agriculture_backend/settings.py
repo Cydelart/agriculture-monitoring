@@ -138,9 +138,9 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ),
 }
-
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=360),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=2000),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",

@@ -17,15 +17,6 @@ def get_user_role(user):
 
 
 class ReadOnlyOrFarmer(BasePermission):
-    """
-    Permission for SensorReadingViewSet
-
-    - GET / HEAD / OPTIONS:
-        allowed for roles: admin, farmer, worker
-    - POST / PUT / PATCH / DELETE:
-        allowed only for roles: admin, farmer
-        (worker cannot modify data)
-    """
 
     def has_permission(self, request, view):
         role = get_user_role(request.user)
@@ -66,3 +57,10 @@ class IsAdminOnly(BasePermission):
     def has_permission(self, request, view):
         role = get_user_role(request.user)
         return role == "admin"
+
+class IsAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return (
+            request.user.is_authenticated and
+            request.user.role == "ADMIN"
+        )

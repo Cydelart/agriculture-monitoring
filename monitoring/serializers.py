@@ -10,12 +10,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    def get_token(self, user):
+    @classmethod
+    def get_token(cls, user):
         token = super().get_token(user)
-
-        token["role"] = user.profile.role
-
+        token['username'] = user.username
+        token['role'] = user.profile.role   
         return token
+
 
 class FarmProfileSerializer(serializers.ModelSerializer):
     class Meta:

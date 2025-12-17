@@ -1,11 +1,11 @@
-// src/components/AdminDashboard.jsx
+// src/components/FarmerDashboard.jsx
 import React from "react";
 
-function AdminDashboard() {
+function FarmerDashboard() {
   return (
     <div style={{ padding: "20px" }}>
-      <h1>Admin Dashboard</h1>
-      <p>Welcome, Admin!</p>
+      <h1>Farmer Dashboard</h1>
+      <p>Welcome, Farmer!</p>
       <button onClick={() => {
         localStorage.clear();
         window.location.href = "/login";
@@ -14,4 +14,4 @@ function AdminDashboard() {
   );
 }
 
-export default AdminDashboard;
+export default FarmerDashboard;

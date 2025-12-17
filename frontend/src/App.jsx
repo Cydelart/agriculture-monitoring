@@ -1,65 +1,42 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
-import Unauthorized from "./pages/Unauthorized";
-import ProtectedRoute from "./auth/ProtectedRoute";
-import { getUserRole } from "./auth/auth.js";
+import FarmerDashboard from "./pages/FarmerDashboard";
 
-export default function App() {
-  const role = getUserRole();
+const PrivateRoute = ({ children }) => {
+  const token = localStorage.getItem("access_token");
+  return token ? children : <Navigate to="/login" />;
+};
 
+function App() {
   return (
     <BrowserRouter>
       <Routes>
-
-        {/* Public */}
         <Route path="/login" element={<Login />} />
 
-        {/* Farmer + Worker */}
         <Route
-          path="/dashboard"
+          path="/admin-dashboard"
           element={
-            <ProtectedRoute allowedRoles={["farmer"]}>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Admin only */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute allowedRoles={["admin"]}>
+            <PrivateRoute>
               <AdminDashboard />
-            </ProtectedRoute>
+            </PrivateRoute>
           }
         />
 
-        {/* Unauthorized */}
-        <Route path="/unauthorized" element={<Unauthorized />} />
-
-        {/* Default route → redirection automatique selon rôle */}
         <Route
-          path="*"
+          path="/farmer-dashboard"
           element={
-            <ProtectedRoute allowedRoles={["admin", "farmer", "worker"]}>
-              <Navigate
-                to={
-                  role === "admin"
-                    ? "/admin"
-                    : role === "farmer" || role === "worker"
-                    ? "/dashboard"
-                    : "/unauthorized"
-                }
-                replace
-              />
-            </ProtectedRoute>
+            <PrivateRoute>
+              <FarmerDashboard />
+            </PrivateRoute>
           }
         />
+
+        <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>
   );
 }
+
+export default App;
