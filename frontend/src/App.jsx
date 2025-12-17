@@ -1,7 +1,9 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
-import AdminDashboard from "./pages/AdminDashboard";
+import Dashboard from "./pages/Dashboard";
+import PlotDetail from "./pages/PlotDetail";
+import Alerts from "./pages/Alerts";
 import FarmerDashboard from "./pages/FarmerDashboard";
 
 const PrivateRoute = ({ children }) => {
@@ -19,7 +21,25 @@ function App() {
           path="/admin-dashboard"
           element={
             <PrivateRoute>
-              <AdminDashboard />
+              <Dashboard />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/admin/plots/:plotId"
+          element={
+            <PrivateRoute>
+              <PlotDetail />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/admin/alerts"
+          element={
+            <PrivateRoute>
+              <Alerts />
             </PrivateRoute>
           }
         />
