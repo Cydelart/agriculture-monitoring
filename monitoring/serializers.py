@@ -1,11 +1,21 @@
 from rest_framework import serializers
 from .models import SensorReading, AnomalyEvent, AgentRecommendation, FieldPlot, FarmProfile,UserProfile
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = "__all__"
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def get_token(self, user):
+        token = super().get_token(user)
+
+        token["role"] = user.profile.role
+
+        return token
 
 class FarmProfileSerializer(serializers.ModelSerializer):
     class Meta:

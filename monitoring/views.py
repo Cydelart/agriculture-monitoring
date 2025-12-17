@@ -1,20 +1,20 @@
 from rest_framework import viewsets, permissions
-from .models import SensorReading, AnomalyEvent, AgentRecommendation,UserProfile
+from .models import SensorReading, AnomalyEvent, AgentRecommendation, UserProfile
 from .serializers import (
     SensorReadingSerializer,
     AnomalyEventSerializer,
-    AgentRecommendationSerializer,UserProfileSerializer
+    AgentRecommendationSerializer,
+    UserProfileSerializer,
 )
 from .permissions import *
 
-class UserProfileViewSet(viewsets.ModelViewSet):
-    queryset = UserProfile.objects.select_related('user').all()
-    serializer_class = UserProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]  # only logged in users can see profiles
 
-# -------------------------------------------------------
-# Sensor Readings (GET + POST)   ← teacher asked for this
-# -------------------------------------------------------
+class UserProfileViewSet(viewsets.ModelViewSet):
+    queryset = UserProfile.objects.select_related("user").all()
+    serializer_class = UserProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
 class SensorReadingViewSet(viewsets.ModelViewSet):
     queryset = SensorReading.objects.all().order_by("-timestamp")
     serializer_class = SensorReadingSerializer
@@ -28,18 +28,12 @@ class SensorReadingViewSet(viewsets.ModelViewSet):
         return qs
 
 
-# -------------------------------------------------------
-# Anomalies (GET only)   ← teacher asked for GET list
-# -------------------------------------------------------
 class AnomalyEventViewSet(viewsets.ModelViewSet):
     queryset = AnomalyEvent.objects.all().order_by("-timestamp")
     serializer_class = AnomalyEventSerializer
     permission_classes = [IsAdminFarmerWorker]
 
 
-# -------------------------------------------------------
-# Recommendations (GET only)   ← teacher asked for GET list
-# -------------------------------------------------------
 class AgentRecommendationViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AgentRecommendation.objects.all().order_by("-timestamp")
     serializer_class = AgentRecommendationSerializer
