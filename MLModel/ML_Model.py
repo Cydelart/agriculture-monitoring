@@ -1,7 +1,11 @@
 import numpy as np
 import pandas as pd
 
+<<<<<<< HEAD
 from MLModel.AnomaliesDetection import ThresholdAnomaliesDetector 
+=======
+
+>>>>>>> main
 
 from .sudden_change_anomaly import SuddenChangeDetector
 

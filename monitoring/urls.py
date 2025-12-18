@@ -4,8 +4,14 @@ from .views import (
     SensorReadingViewSet,
     AnomalyEventViewSet,
     AgentRecommendationViewSet,
-    UserProfileViewSet,   )
-from .views import get_ml_metrics
+
+    UserProfileViewSet, 
+    get_ml_metrics ,  )
+
+
+from .views import anomaly_curve
+
+
 router = DefaultRouter()
 router.register("sensor-readings", SensorReadingViewSet, basename="sensor-reading")
 router.register("anomalies", AnomalyEventViewSet, basename="anomaly")
@@ -14,6 +20,6 @@ router.register("user-profiles", UserProfileViewSet, basename="user-profile")
 
 urlpatterns = [
     path("", include(router.urls)),
-    path("ml-metrics/", get_ml_metrics),
-
+    path('ml-metrics/', get_ml_metrics),
+    path("anomaly-curve/", anomaly_curve),
 ]

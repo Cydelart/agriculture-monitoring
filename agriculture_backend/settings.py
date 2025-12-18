@@ -44,11 +44,16 @@ INSTALLED_APPS = [
 
     'rest_framework_simplejwt',
     'monitoring',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
+<<<<<<< HEAD
     'corsheaders.middleware.CorsMiddleware',
 
+=======
+     # MUST be at the top
+>>>>>>> main
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -56,11 +61,18 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
 ]
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]
+<<<<<<< HEAD
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",  # your React dev server
 ]
 
+=======
+>>>>>>> main
 ROOT_URLCONF = 'agriculture_backend.urls'
 
 TEMPLATES = [

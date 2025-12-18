@@ -29,6 +29,28 @@ df_year_normal = pd.DataFrame({
     "plot": plot
 })
 
+
+data = {
+    "timestamp": pd.date_range(start="2025-01-01 10:00:00", periods=15, freq="15min"),
+
+    # First 10 readings normal, last 5 extremely hot
+    "temperature": [
+        36, 36, 36, 36, 36, 36,   # normal (6*0.25h = 1.5h)
+        36, 38, 40, 41, 42, 40, 39, 38, 37  # anomaly (9*0.25h = 2.25h)
+    ],
+
+    # First 10 readings normal, last 5 very low humidity
+     "humidity": [
+        30, 30, 30, 30, 30, 30,   # normal
+        30, 25, 20, 18, 15, 20, 22, 25, 28  # anomaly
+    ],
+
+    # All readings belong to the same plot
+    "plot": ["Plot 1"] * 15
+}
+
+df_test = pd.DataFrame(data)
+
 """print(df_year_normal.head())
 print(df_year_normal.tail())
 print(f"Total readings: {len(df_year_normal)}")"""
@@ -37,3 +59,12 @@ detector = THIMonthlyDetector(sustained_hours=2)
 expected_thi = detector.train(df_year_normal)
 print("Expected THI per month learned from training data:")
 print(expected_thi)
+
+
+result = detector.thi_anomalies(df_test, 2)
+
+print("Anomalies detected:")
+for plot, anomaly in result:
+    print(f"Plot {plot}: {anomaly}")
+
+

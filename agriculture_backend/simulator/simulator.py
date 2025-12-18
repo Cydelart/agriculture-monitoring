@@ -15,7 +15,12 @@ if response.status_code != 200:
 
 tokens = response.json()
 access_token = tokens["access"]
-print(access_token)
+<<<<<<< HEAD
+
+=======
+refresh_token = tokens["refresh"]
+#print(refresh_token)
+>>>>>>> main
 HEADERS = {
     "Content-Type": "application/json",
     "Authorization": f"Bearer {access_token}"
@@ -99,13 +104,21 @@ def send_reading(plot_id, sensor_type, value):
         "value": round(value, 2),
         "source": "simulator",
     }
+    timestamp = datetime.now(timezone.utc).isoformat()
+
     response = requests.post(SENSOR_API_URL, json=payload, headers=HEADERS)
+
+    print(
+    f"[{timestamp}] "
+    f"[PLOT {plot_id}] {sensor_type}={value:.2f} → status {response.status_code}"
+    )
+
     print(f"[PLOT {plot_id}] {sensor_type}={value:.2f} → status {response.status_code}")
     if response.status_code not in (200, 201):
         print("Response body:", response.text)
     return response.json().get("id")  # return sensor reading ID if available
 
-def send_anomaly(plot_id, sensor_type, value, related_reading=None):
+"""def send_anomaly(plot_id, sensor_type, value, related_reading=None):
     payload = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "plot": plot_id,
@@ -117,7 +130,7 @@ def send_anomaly(plot_id, sensor_type, value, related_reading=None):
     print(f"[PLOT {plot_id}] → AnomalyEvent posted: status {response.status_code}")
     if response.status_code not in (200, 201):
         print("Response body:", response.text)
-
+"""
 # -----------------------------
 # 4️⃣ Main loop
 # -----------------------------
@@ -146,14 +159,25 @@ def main():
             moisture_id = send_reading(plot_id, "moisture", moisture)
             temp_id = send_reading(plot_id, "temperature", temperature)
             hum_id = send_reading(plot_id, "humidity", humidity)
+            print("fffffffffffffffff")
+
+            if mo_anomaly:
+                print(f"🚨 [SIMULATOR] Injected MOISTURE anomaly on plot {plot_id}: {moisture:.2f}")
+
+            if temp_anomaly:
+                print(f"🚨 [SIMULATOR] Injected TEMPERATURE anomaly on plot {plot_id}: {temperature:.2f}")
+
+            if hum_anomaly:
+                print(f"🚨 [SIMULATOR] Injected HUMIDITY anomaly on plot {plot_id}: {humidity:.2f}")
 
             # Post anomalies if detected
+            """
             if mo_anomaly:
                 send_anomaly(plot_id, "moisture", moisture, related_reading=moisture_id)
             if temp_anomaly:
                 send_anomaly(plot_id, "temperature", temperature, related_reading=temp_id)
             if hum_anomaly:
-                send_anomaly(plot_id, "humidity", humidity, related_reading=hum_id)
+                send_anomaly(plot_id, "humidity", humidity, related_reading=hum_id)"""
 
         time.sleep(SEND_EVERY_SECONDS)
 
