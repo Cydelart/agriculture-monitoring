@@ -10,8 +10,7 @@ class SuddenChangeDetector:
     def sudden_change(self, df):
         anomalies = []
 
-        if "timestamp" not in df.columns:
-            raise ValueError("DataFrame must contain a 'timestamp' column.")
+        
 
         # Sort newest -> oldest
         df = df.sort_values("timestamp", ascending=False).reset_index(drop=True)
@@ -43,10 +42,18 @@ class SuddenChangeDetector:
                 break  # stop if over 3 hours
 
             if time_diff_h >= MIN_HOURS and past_moist - last_moist > SUDDEN_DROP_THRESHOLD:
-                anomalies.append(
+                """anomalies.append(
                     (last_plot,
                     f"Sudden moisture drop {past_moist - last_moist:.1f}% over {time_diff_h:.2f}h")
-                )
+                )"""
+                anomalies.append({
+                "plot": last_plot,
+                "anomaly_type": f"Sudden moisture drop {past_moist - last_moist:.1f}% over {time_diff_h:.2f}h",
+                "severity": "high",                  # à calculer selon la valeur
+                "model_confidence": 0.95,            # ou valeur calculée par ton modèle
+                "related_reading": df["timestamp"]        # la lecture qui déclenche l’anomalie
+                     
+            })
                 break  # stop after first anomaly detected
 
 
@@ -76,9 +83,16 @@ class SuddenChangeDetector:
         # Record anomaly only if duration is long enough
         if duration_h >= PROLONGED_HOURS:
             plot = df.loc[last_idx, "plot"]
-            anomalies.append(
+            """anomalies.append(
                 (plot, f"Prolonged low moisture <{PROLONGED_THRESHOLD}% for {duration_h:.2f}h")
-            )
-
+            )"""
+            anomalies.append({
+                "plot": plot,
+                "anomaly_type": f"Prolonged low moisture <{PROLONGED_THRESHOLD}% for {duration_h:.2f}h",
+                "severity": "high",                  # à calculer selon la valeur
+                "model_confidence": 0.95,            # ou valeur calculée par ton modèle
+                "related_reading": df["timestamp"]        # la lecture qui déclenche l’anomalie
+                     
+            })
         return anomalies
 

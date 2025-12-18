@@ -1,15 +1,15 @@
 import numpy as np
 import pandas as pd
 
-from AnomaliesDetection import ThresholdAnomaliesDetector 
+from .AnomaliesDetection import ThresholdAnomaliesDetector 
 
-from sudden_change_anomaly import SuddenChangeDetector
+from .sudden_change_anomaly import SuddenChangeDetector
 
-from Thi_AnomalydetectorModel import THIMonthlyDetector
+from .Thi_AnomalydetectorModel import THIMonthlyDetector
 
-from FrequencyAnomalyDetection import FrequencyAnomalyDetector
+from .FrequencyAnomalyDetection import FrequencyAnomalyDetector
 
-from CorrelationDetection import CorrelationAnomalyDetector 
+from .CorrelationDetection import CorrelationAnomalyDetector 
 
 
 start_time = pd.Timestamp("2025-01-01 00:00:00")
@@ -38,49 +38,53 @@ df_year_normal = pd.DataFrame({
 })
 
 
-def sensor_dataframe(df):
-    
-
+def sensor_dataframe(df, window_seconds=10):
     df = df.copy()
 
-    # Pivot table
+    # Convert timestamp to datetime
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+
+    # Arrondir à une fenêtre temporelle
+    df["time_bucket"] = df["timestamp"].dt.floor(f"{window_seconds}s")
+
     df_final = df.pivot_table(
-        index=["timestamp", "plot"],
+        index=["time_bucket", "plot"],
         columns="sensor_type",
         values="value",
-        aggfunc="mean"
+        aggfunc="last"
     ).reset_index()
 
-    
+    df_final = df_final.dropna(
+        subset=["moisture", "temperature", "humidity"]
+    )
+
+    # Renommer pour garder timestamp propre
+    df_final = df_final.rename(columns={"time_bucket": "timestamp"})
 
     return df_final
 
 
-# -----------------------------------------------------------
-# WRAPPER: GROUP ALL ANOMALIES BY TIMESTAMP/INDEX
-# -----------------------------------------------------------
-thi_detector = THIMonthlyDetector(sustained_hours=2)
 
-THIMonthlyDetector.train(df_year_normal);
+thi_detector = THIMonthlyDetector(sustained_hours=2)
+ano_detector = ThresholdAnomaliesDetector()
+sud_detector= SuddenChangeDetector()
+freq_detector= FrequencyAnomalyDetector()
+corr_detector = CorrelationAnomalyDetector()
 
 def detect_all(df_final):
 
     all_anomalies = []
     
-
-    all_anomalies += ThresholdAnomaliesDetector.threshold_anomalies(df_final)
     
-    all_anomalies += SuddenChangeDetector.sudden_change(df_final)
+    all_anomalies += ano_detector.threshold_anomalies(df_final)
+    
+    all_anomalies += sud_detector.sudden_change(df_final)
 
-    all_anomalies += THIMonthlyDetector.thi_anomalies(df_final,2)
+    all_anomalies += thi_detector.thi_anomalies(df_final,2)
 
-    all_anomalies += FrequencyAnomalyDetector.frequency_anomalies(df_final,5,15)
+    all_anomalies += freq_detector.frequency_anomalies(df_final,5,15)
 
-    all_anomalies += CorrelationAnomalyDetector.moisture_temperature_correlation_anomaly(df_final,2) 
+    all_anomalies += corr_detector.moisture_temperature_correlation_anomaly(df_final,2) 
+    return all_anomalies
 
-    # Group anomalies per index
-    grouped = {}
-    for plot, anomaly in all_anomalies:
-        grouped.setdefault(plot, []).append(anomaly)
-
-    return grouped
+    

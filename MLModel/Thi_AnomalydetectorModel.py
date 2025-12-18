@@ -75,18 +75,28 @@ class THIMonthlyDetector:
                 if in_deviation:
                     duration_h = (start_time - time).total_seconds() / 3600
                     if duration_h >= min_duration_hours:
-                        print(start_time)
+                        """print(start_time)
                         print(time)
                         print(thi)
                         print(latest["thi"])
-                        print(expected_THI)
+                        print(expected_THI)"""
 
-                        anomalies.append(
+                        """anomalies.append(
                             (plot,
                              f"THI sustained deviation >15% "
                              f"(THI={start_thi:.2f}, deviation={start_dev:.1f}%, "
                              f"duration={duration_h:.2f}h)")
-                        )
+                        )"""
+                        anomalies.append({
+                            "plot": plot,
+                            "anomaly_type": f"THI sustained deviation >15% "
+                             f"(THI={start_thi:.2f}, deviation={start_dev:.1f}%, "
+                             f"duration={duration_h:.2f}h)",
+                            "severity": "high",                  # à calculer selon la valeur
+                            "model_confidence": 0.95,            # ou valeur calculée par ton modèle
+                            "related_reading": latest["timestamp"]       # la lecture qui déclenche l’anomalie
+                            
+                        })
                         
                     in_deviation = False
                     start_time = -1
@@ -100,11 +110,21 @@ class THIMonthlyDetector:
             duration_h = (start_time - df.iloc[-1]["timestamp"]).total_seconds() / 3600
             if duration_h >= min_duration_hours:
                 plot = df.iloc[-1]["plot"]
-                anomalies.append(
+                """anomalies.append(
                     (plot,
                      f"THI sustained deviation >15% "
                      f"(THI={start_thi:.2f}, deviation={start_dev:.1f}%, "
                      f"duration={duration_h:.2f}h)")
-                )
+                )"""
+                anomalies.append({
+                            "plot": plot,
+                            "anomaly_type": f"THI sustained deviation >15% "
+                            f"(THI={start_thi:.2f}, deviation={start_dev:.1f}%, "
+                            f"duration={duration_h:.2f}h)",
+                            "severity": "high",                  # à calculer selon la valeur
+                            "model_confidence": 0.95,            # ou valeur calculée par ton modèle
+                            "related_reading": latest["timestamp"]       # la lecture qui déclenche l’anomalie
+                            
+                        })
 
         return anomalies
