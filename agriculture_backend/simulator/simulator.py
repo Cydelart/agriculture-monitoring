@@ -15,7 +15,8 @@ if response.status_code != 200:
 
 tokens = response.json()
 access_token = tokens["access"]
-
+refresh_token = tokens["refresh"]
+#print(refresh_token)
 HEADERS = {
     "Content-Type": "application/json",
     "Authorization": f"Bearer {access_token}"

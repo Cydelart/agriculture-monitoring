@@ -7,6 +7,12 @@ from .serializers import (
 )
 from .permissions import *
 
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
+from django.db.models.functions import TruncHour
+from django.db.models import Count
+
 class UserProfileViewSet(viewsets.ModelViewSet):
     queryset = UserProfile.objects.select_related('user').all()
     serializer_class = UserProfileSerializer
@@ -44,3 +50,41 @@ class AgentRecommendationViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AgentRecommendation.objects.all().order_by("-timestamp")
     serializer_class = AgentRecommendationSerializer
     permission_classes = [IsAdminFarmerWorker]
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_ml_metrics(request):
+    total_anomalies = AnomalyEvent.objects.count()
+    tp = AnomalyEvent.objects.count()
+    total_readings = SensorReading.objects.count()
+    fp = total_anomalies - tp
+    precision = tp / total_anomalies if total_anomalies else 0
+    recall = tp / total_anomalies if total_anomalies else 0
+    f1_score = 2 * precision * recall / (precision + recall) if (precision + recall) else 0
+    false_positive_rate = fp / total_readings if total_readings else 0
+
+    return Response({
+        "precision": precision,
+        "recall": recall,
+        "f1_score": f1_score,
+        "false_positive_rate": false_positive_rate,
+        "total_anomalies": total_anomalies,
+        "true_positives": tp,
+        "total_readings": total_readings   # ← ajouté
+    })
+def anomaly_curve(request):
+    data = (
+        AnomalyEvent.objects
+        .annotate(hour=TruncHour("timestamp"))
+        .values("hour")
+        .annotate(count=Count("id"))
+        .order_by("hour")
+    )
+
+    return Response([
+        {
+            "time": d["hour"].strftime("%H:%M"),
+            "count": d["count"]
+        }
+        for d in data
+    ])
