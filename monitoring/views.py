@@ -6,6 +6,8 @@ from .serializers import (
     AgentRecommendationSerializer,UserProfileSerializer
 )
 from .permissions import *
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 
 class UserProfileViewSet(viewsets.ModelViewSet):
     queryset = UserProfile.objects.select_related('user').all()
@@ -44,3 +46,31 @@ class AgentRecommendationViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AgentRecommendation.objects.all().order_by("-timestamp")
     serializer_class = AgentRecommendationSerializer
     permission_classes = [IsAdminFarmerWorker]
+
+
+@api_view(['GET'])
+def get_ml_metrics(request):
+    # Count total anomalies detected
+    total_anomalies = AnomalyEvent.objects.count()
+    
+    # Count anomalies linked to readings (true positives)
+    tp = AnomalyEvent.objects.filter(related_reading__isnull=False).count()
+    
+    # Count all sensor readings
+    total_readings = SensorReading.objects.count()
+    
+    # False positives = anomalies not linked to readings
+    fp = total_anomalies - tp
+    
+    # Simple precision/recall computation (example)
+    precision = tp / total_anomalies if total_anomalies else 0
+    recall = tp / total_readings if total_readings else 0
+    f1_score = 2 * precision * recall / (precision + recall) if (precision + recall) else 0
+    false_positive_rate = fp / total_readings if total_readings else 0
+
+    return Response({
+        "precision": precision,
+        "recall": recall,
+        "f1_score": f1_score,
+        "false_positive_rate": false_positive_rate
+    })
